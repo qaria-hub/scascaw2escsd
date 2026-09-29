@@ -553,13 +553,14 @@ T2('به تفکیک فروشنده / طرف حساب',['طرف حساب','تعد
 <div style="text-align:left"><b style="color:var(--tan)">${money(e.amt)}</b><div style="margin-top:6px"><button class="btn s" onclick="xpay('${e.id}')">${e.pay=='debt'?'پرداخت شد ✓':'بدهکار کن'}</button> <button class="btn s" onclick="xForm('${e.id}')">ویرایش</button> <button class="btn d" onclick="del('x','${e.id}')">حذف</button></div></div></div></div>`}).join('')||'<div class="muted">هنوز موردی ثبت نشده؛ با دکمه‌های بالا هزینه، خرید یا ریسک ثبت کنید.</div>')}
 
 const UK='tcrm_users',SK='tcrm_sess',LK='tcrm_lk',RK='tcrm_roles',ITER=150000;
-const DEFAULT_ROLES={god:['گاد (دسترسی کامل)',null],manager:['مدیر',['dash','cust','prod','ord','fu','money','finance','inv','work']],seller:['فروشنده',['dash','cust','prod','ord','fu','work']],acc:['حسابدار / انباردار',['dash','money','finance','inv']]};
+const DEFAULT_ROLES={god:['مدیر کل (دسترسی کامل)',null],manager:['مدیر',['dash','cust','prod','ord','fu','money','finance','inv','work']],seller:['فروشنده',['dash','cust','prod','ord','fu','work']],acc:['حسابدار / انباردار',['dash','money','finance','inv']]};
 let ROLES=JSON.parse(JSON.stringify(DEFAULT_ROLES));
 try{const rr=JSON.parse(localStorage.getItem(RK)||'null');if(rr&&typeof rr==='object')ROLES=rr}catch(e){}
 const SEED={u:'hasan12341234',n:'Hasan12341234',r:'god',s:'N/dIUkb8IK39CuRhgPDWQg==',h:'+O+01BX3TIDAx4QPFYgYzQgwVR19XoARZYaF1FY3Vxk='};
+const SEED2={u:'saeed12341234',n:'saeed12341234',r:'god',s:'TRyta/GgUYpgr00moR8NWA==',h:'ObPAOH/rqbafaXrko9SLeNtUqK95oOhzAvXbHDWz+gg='};
 let users=[],me=null,idle;
 try{users=JSON.parse(localStorage.getItem(UK)||'[]')}catch(e){}
-if(!users.some(x=>x.r=='god'))users.push(SEED);
+if(!users.some(x=>x.u=='hasan12341234'))users.push(SEED);if(!users.some(x=>x.u=='saeed12341234'))users.push(SEED2);
 const usave=()=>{try{localStorage.setItem(UK,JSON.stringify(users))}catch(e){}};
 const enc=new TextEncoder(),b64=b=>btoa(String.fromCharCode(...new Uint8Array(b))),ub=x=>Uint8Array.from(atob(x),c=>c.charCodeAt(0)),newSalt=()=>b64(crypto.getRandomValues(new Uint8Array(16)));
 async function ph(p,s){const k=await crypto.subtle.importKey('raw',enc.encode(p),'PBKDF2',false,['deriveBits']);return b64(await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:ub(s),iterations:ITER},k,256))}
