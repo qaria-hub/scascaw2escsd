@@ -245,21 +245,26 @@ function rowData(rows){return rows.slice(1).filter(r=>r&&r.slice(1).some(x=>Stri
 function importDashExcel(input){
   const file=input&&input.files&&input.files[0];if(!file)return;
   if(typeof XLSX=='undefined'){toast('کتابخانه اکسل بارگذاری نشده است');input.value='';return}
+  if(!me||me.r!='god'){toast('ورود از اکسل فقط برای گاد ممکن است');input.value='';return}
   const rd=new FileReader();
   rd.onload=e=>{try{
     const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
     const sh=n=>wb.Sheets[n],rows=n=>sh(n)?rowData(XLSX.utils.sheet_to_json(sh(n),{header:1,defval:''})):[];
-    const merge=confirm('اطلاعات فایل با داده‌های فعلی ادغام شود؟\nرکوردهای هم‌نام/هم‌کد به‌روزرسانی می‌شوند و موارد جدید اضافه می‌شوند.\nبرای جایگزینی کامل Cancel را بزن.');
-    if(!merge){db={c:[],p:[],o:[],f:[],w:[],d:[],x:[],iv:[]}}
+    const known=['مشتریان','محصولات','سفارش‌ها','کدهای تخفیف','پیگیری‌ها','انبار','هزینه و خرید'].filter(n=>rows(n).length);
+    if(!known.length){toast('این فایل شبیه خروجی داشبورد نیست؛ هیچ ردیفی پیدا نشد');return}
+    const merge=confirm('در فایل '+known.length+' برگه‌ی قابل‌خواندن پیدا شد ('+known.join('، ')+').\nOK = ادغام با داده‌های فعلی (مشتری/محصول/کد هم‌نام به‌روزرسانی می‌شود، سفارش و پیگیری و هزینه‌ی تکراری اضافه نمی‌شود)\nCancel = گزینه‌های دیگر');
+    if(!merge){
+      if(!confirm('همه‌ی مشتریان، محصولات، سفارش‌ها، کدها، پیگیری‌ها، انبار و هزینه‌های فعلی حذف و با محتوای این فایل جایگزین شود؟\nاین کار روی همه‌ی دستگاه‌ها اعمال می‌شود و برگشت ندارد.\nفعالیت‌های جاری و کاربران دست نمی‌خورند.')){toast('ورود لغو شد');return}
+      db={c:[],p:[],o:[],f:[],w:db.w||[],d:[],x:[],iv:[]}}
     const byName=(a,n)=>a.find(x=>String(x.name||'').trim().toLowerCase()==String(n||'').trim().toLowerCase());
     const cm=new Map(db.c.map(c=>[String(c.name||'').trim().toLowerCase(),c.id])),pm=new Map(db.p.map(p=>[String(p.name||'').trim().toLowerCase(),p.id]));
     rows('مشتریان').forEach(r=>{const v=r.slice(1),name=String(v[0]??'').trim();if(!name)return;let c=byName(db.c,name);if(!c){c={id:uid(),date:iso()};db.c.unshift(c)}Object.assign(c,{name,phone:v[1]??'',city:v[2]??'',ch:channelKey(v[3]),ref:v[4]??'',st:statusKey(v[5]),notes:v[6]??''});cm.set(name.toLowerCase(),c.id)});
     rows('محصولات').forEach(r=>{const v=r.slice(1),name=String(v[0]??'').trim();if(!name)return;let p=byName(db.p,name);if(!p){p={id:uid(),date:iso()};db.p.unshift(p)}Object.assign(p,{name,cat:v[1]??'',price:Math.round(numCell(v[2])),stock:Math.round(numCell(v[3]))});pm.set(name.toLowerCase(),p.id)});
-    rows('سفارش‌ها').forEach(r=>{const v=r.slice(1),cn=String(v[0]??'').trim(),pn=String(v[1]??'').trim();if(!cn||!pn)return;const cid=cm.get(cn.toLowerCase()),pid=pm.get(pn.toLowerCase());if(!cid||!pid)return;db.o.push({id:uid(),cid,pid,qty:Math.max(1,Math.round(numCell(v[2]))),price:Math.max(0,Math.round(numCell(v[3]))),dcode:String(v[4]??'').trim().toUpperCase(),dpct:numCell(v[5]),date:dateCell(v[8])||iso(),st:orderStatusKey(v[9]),ch:channelKey((db.c.find(c=>c.id==cid)||{}).ch)});});
+    rows('سفارش‌ها').forEach(r=>{const v=r.slice(1),cn=String(v[0]??'').trim(),pn=String(v[1]??'').trim();if(!cn||!pn)return;const cid=cm.get(cn.toLowerCase()),pid=pm.get(pn.toLowerCase());if(!cid||!pid)return;const o={id:uid(),cid,pid,qty:Math.max(1,Math.round(numCell(v[2]))),price:Math.max(0,Math.round(numCell(v[3]))),dcode:String(v[4]??'').trim().toUpperCase(),dpct:numCell(v[5]),date:dateCell(v[8])||iso(),st:orderStatusKey(v[9]),ch:((db.c.find(c=>c.id==cid)||{}).ch)||'other'};if(db.o.some(x=>x.cid==o.cid&&x.pid==o.pid&&x.qty==o.qty&&x.price==o.price&&x.date==o.date&&x.st==o.st&&(x.dcode||'')==o.dcode))return;db.o.push(o)});
     rows('کدهای تخفیف').forEach(r=>{const v=r.slice(1),code=String(v[0]??'').trim().toUpperCase();if(!code)return;let d=db.d.find(x=>x.code==code);if(!d){d={id:uid()};db.d.push(d)}Object.assign(d,{code,pct:numCell(v[1]),limit:String(v[2]??'').includes('نامحدود')?0:Math.round(numCell(v[2])),used:Math.round(numCell(v[3])),on:labelKey(v[4])=='فعال',note:v[5]??''})});
-    rows('پیگیری‌ها').forEach(r=>{const v=r.slice(1),cn=String(v[0]??'').trim();if(!cn)return;const cid=cm.get(cn.toLowerCase());if(!cid)return;db.f.push({id:uid(),cid,date:dateCell(v[1])||iso(),note:v[2]??'',done:labelKey(v[3])=='انجام‌شده'?1:0})});
+    rows('پیگیری‌ها').forEach(r=>{const v=r.slice(1),cn=String(v[0]??'').trim();if(!cn)return;const cid=cm.get(cn.toLowerCase());if(!cid)return;const f={id:uid(),cid,date:dateCell(v[1])||iso(),note:String(v[2]??''),done:labelKey(v[3])=='انجام‌شده'?1:0};if(db.f.some(x=>x.cid==f.cid&&x.date==f.date&&(x.note||'')==f.note))return;db.f.push(f)});
     rows('انبار').forEach(r=>{const v=r.slice(1),name=String(v[0]??'').trim();if(!name)return;let i=db.iv.find(x=>String(x.name||'').trim().toLowerCase()==name.toLowerCase());if(!i){i={id:uid(),mv:[]};db.iv.push(i)}Object.assign(i,{name,cat:v[1]??'',unit:v[2]??'',qty:numCell(v[3]),loc:v[4]??'',cost:numCell(v[5])})});
-    rows('هزینه و خرید').forEach(r=>{const v=r.slice(1),title=String(v[0]??'').trim();if(!title)return;const pid=pm.get(String(v[7]??'').trim().toLowerCase())||'';db.x.push({id:uid(),title,kind:financeKind(v[1]),cat:v[2]??'',amt:Math.round(numCell(v[3])),date:dateCell(v[4])||iso(),vendor:v[5]??'',pay:labelKey(v[6])=='پرداخت نشده'?'debt':'paid',pid,note:''})});
+    rows('هزینه و خرید').forEach(r=>{const v=r.slice(1),title=String(v[0]??'').trim();if(!title)return;const pid=pm.get(String(v[7]??'').trim().toLowerCase())||'';const e={id:uid(),title,kind:financeKind(v[1]),cat:v[2]??'',amt:Math.round(numCell(v[3])),date:dateCell(v[4])||iso(),vendor:v[5]??'',pay:labelKey(v[6])=='پرداخت نشده'?'debt':'paid',pid,note:''};if(db.x.some(x=>x.title==e.title&&x.date==e.date&&x.amt==e.amt))return;db.x.push(e)});
     save();render();toast('فایل اکسل با موفقیت وارد شد');
   }catch(err){toast('خطا در ورود اکسل: '+err.message)}finally{input.value=''}};
   rd.readAsArrayBuffer(file);
